@@ -1,1 +1,513 @@
-Hello World!
+<html>
+
+<head>
+
+</head>
+
+<body>
+    <div style="border: 5px solid #0000FF">
+        <p>Environment URL: <input type="text" name="Environment URL" id="envUrl"></p>
+        <p>Project ID: <input type="text" name="Project ID" id="projectId"></p>
+        <p>API Key: <input type="text" name="API Key" id="apiKey"></p>
+        <p><input type="button" value="Execute" id="executeBtn"></p>
+    </div>
+    <div id="contents">This is a text</div>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+        // Defines rules for node descriptions (descriptionRuleset, dr)
+        const descriptionRuleset = {
+            "start": {
+                diagramNode: {
+                    content: { text: "Start" },
+                    shape: "pill",
+                    fill: ""
+                }
+            },
+            "end": {
+                diagramNode: {
+                    content: { text: "End" },
+                    shape: "pill"
+                }
+            },
+            "if": {
+                diagramNode: {
+                    content: { text: "If" },
+                    shape: "hexagon"
+                },
+                description: [
+                    { function: node => node.label, bold: true },
+                    { text: "Condition: ", noLinebreak: true },
+                    { function: node => node.preview.type === "condition" ? node.preview.condition : node.preview.rule.left + " " + node.preview.rule.operand + " " + node.preview.rule.right, italic: true },
+                    { text: "Comment: ", noLinebreak: true, italic: true },
+                    { function: node => node.comment }
+                ]
+            },
+            "then": {
+                diagramNode: {
+                    content: { function: node => node.label },
+                    shape: "pill"
+                }
+            },
+            "else": {
+                diagramNode: {
+                    content: { function: node => node.label },
+                    shape: "pill"
+                }
+            },
+            "goTo": {
+                diagramNode: {
+                    content: { function: node => node.label },
+                    shape: "box"
+                },
+                description: [
+                    { function: node => node.label, bold: true },
+                    { text: "Target Flow: ", italic: true, noLinebreak: true },
+                    { function: node => node.preview.flow },
+                    { text: "Target Node: ", italic: true, noLinebreak: true },
+                    { function: node => node.preview.node },
+                    { text: "Comment: ", noLinebreak: true, italic: true },
+                    { function: node => node.comment }
+                ]
+            },
+            "executeFlow": {
+                diagramNode: {
+                    content: { function: node => node.label },
+                    shape: "box"
+                },
+                description: [
+                    { function: node => node.label, bold: true },
+                    { text: "Target Flow: ", italic: true, noLinebreak: true },
+                    { function: node => node.preview.flow },
+                    { text: "Target Node: ", italic: true, noLinebreak: true },
+                    { function: node => node.preview.node },
+                    { text: "Comment: ", noLinebreak: true, italic: true },
+                    { function: node => node.comment }
+                ]
+            },
+            "code": {
+                diagramNode: {
+                    content: { function: node => node.label },
+                    shape: "box"
+                },
+                description: [
+                    { function: node => node.label, bold: true },
+                    { text: "Comment: ", noLinebreak: true, italic: true },
+                    { function: node => node.comment }
+                ]
+            },
+            "say": {
+                diagramNode: {
+                    content: { function: node => node.label },
+                    shape: "box"
+                },
+                description: [
+                    { function: node => node.label, bold: true },
+                    { text: "Message: ", italic: true, noLinebreak: true },
+                    { function: node => node.preview.text[0] },
+                    { text: "Comment: ", noLinebreak: true, italic: true },
+                    { function: node => node.comment }
+                ]
+            },
+            "sendMessage": {
+                diagramNode: {
+                    content: { function: node => node.label },
+                    shape: "box"
+                },
+                description: [
+                    { function: node => node.label, bold: true },
+                    { text: "Message: ", italic: true, noLinebreak: true },
+                    { function: node => node.preview },
+                    { text: "Comment: ", noLinebreak: true, italic: true },
+                    { function: node => node.comment }
+                ]
+            },
+            "switch": {
+                diagramNode: {
+                    content: { function: node => node.label },
+                    shape: "hexagon"
+                },
+                description: [
+                    { function: node => node.label, bold: true },
+                    { text: "Operator: ", italic: true, noLinebreak: true },
+                    { function: node => node.preview },
+                    { text: "Comment: ", noLinebreak: true, italic: true },
+                    { function: node => node.comment }
+                ]
+            },
+            "default": {
+                diagramNode: {
+                    content: { function: node => node.label },
+                    shape: "pill"
+                }
+            },
+            "case": {
+                diagramNode: {
+                    content: { function: node => node.label },
+                    shape: "pill"
+                }
+            },
+            "wait": {
+                diagramNode: {
+                    content: { function: node => node.label },
+                    shape: "pill"
+                },
+                description: [
+                    { text: "Wait for input" },
+                    { text: "Comment: ", noLinebreak: true, italic: true },
+                    { function: node => node.comment }
+                ]
+            },
+            "stop": {
+                diagramNode: {
+                    content: { function: node => node.label },
+                    shape: "pill"
+                },
+                description: [
+                    { text: "Stop and return" },
+                    { text: "Comment: ", noLinebreak: true, italic: true },
+                    { function: node => node.comment }
+                ]
+            },
+            "thinkV2": {
+                diagramNode: {
+                    content: { function: node => node.label },
+                    shape: "box"
+                }
+            }
+        }
+
+
+
+
+        /**
+         * Takes file path to JSON file, reads contents and returns an object
+         * @param {string} filePath 
+         * @returns Object representation of JSON file
+         */
+        function readJsonFile(filePath) {
+            let chartObj = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+            return chartObj
+        }
+
+
+
+
+        /**
+         * Recursively transforms flow representation from Cognigy to simple representation to work with
+         * @param {array} nodeList Array containing all nodes which have been previously processed. On first
+         * execution, function has to be initialized with empty nodeList: []
+         * @param {object} flowChart Object representation of Cognigy Flow JSON
+         * @param {string} nodeId ID of the node to process. On first exection, function has to be
+         * initialized with the ID of the start node.
+         * @param {string} nextAfterNull ID of node following after the last node of the parent node. E.g. 
+         * when a node, which has child nodes such as an IF node, has been processed previously, this
+         * vairable should contain the next node after the IF segment and its child paths.
+         * @returns array containing the nodes of the flow with flowchart relations
+         */
+        function recFlowStructureTransform(nodeRepresentationList, flowChart, nodeId, nextAfterNull) {
+            // When nodeId is null, use nodeId of "start" node
+            if (nodeId === null) {
+                nodeId = flowChart.nodes.find(node => node.type === 'start')._id
+            }
+
+            // Initialize current node and relations of current node to other nodes
+            let node = flowChart.nodes.find(node => {
+                return node._id === nodeId
+            })
+            let relations = flowChart.relations.find(node => {
+                return node.node === nodeId
+            })
+
+            // intialize object representing the current node. Will be extended throughout function
+            // execution and returned at the end
+            let nodeRepresentation = node
+            nodeRepresentation.next = relations.next
+
+
+            // Check if has children and if yes, recurse on each child
+            if (relations.children.length > 0) {
+                nodeRepresentation.next = relations.children
+                relations.children.forEach(child => {
+                    // Pass next node of current node as nextAfterNull, to know where ending nodes of child 
+                    // paths need to point at
+                    recFlowStructureTransform(
+                        nodeRepresentationList, flowChart, child, relations.next ? relations.next : nextAfterNull
+                    )
+                });
+            }
+
+            // After processing children, check if there is next node after this, and if yes, recurse
+            if (relations.next !== null) {
+                recFlowStructureTransform(nodeRepresentationList, flowChart, relations.next, nextAfterNull)
+            }
+
+            // Update nodeRepresentation
+            if (nodeRepresentation.next == null) {
+                nodeRepresentation.next = nextAfterNull
+            }
+
+            nodeRepresentationList.unshift(nodeRepresentation)
+            // return nodeRepresentationList - only relevant for first instance of recursive function
+            return nodeRepresentationList
+        }
+
+
+
+
+        /**
+         * Takes the simple representation of the flowchart and generates mermaid script to display this
+         * representation in the browser
+         * @param {Array} nodeList Contains all the nodes and the respective relations to form a diagram
+         * @returns A string representation of the diagram in mermaid script
+         */
+        function generateFlowChart(nodeList) {
+            // Init variables
+            let flowchartDefinition = 'graph TD\n'
+
+            // Add node definitions in flowchart definition
+            nodeList.forEach(nodeRepresentation => {
+                // Add <=> nodes for start and end
+                if (nodeRepresentation.type === 'start') {
+                    flowchartDefinition += `${nodeRepresentation._id}{{Start}}\n`
+                } else if (nodeRepresentation.type === 'end') {
+                    flowchartDefinition += `${nodeRepresentation._id}{{End}}\n`
+                    // add pill-shape nodes for then and else nodes 
+                    // TODO: do the same for all nodes which are children of another node (e.g. cases, error, ...)
+                } else if (nodeRepresentation.type === 'then') {
+                    flowchartDefinition += `${nodeRepresentation._id}([Then])\n`
+                } else if (nodeRepresentation.type === 'else') {
+                    flowchartDefinition += `${nodeRepresentation._id}([Else])\n`
+                    // Add diamond shape for all nodes which "split" paths of the flow, e.g. If
+                    // TODO: update to not become to big based on the name
+                } else if (Array.isArray(nodeRepresentation.next)) {
+                    flowchartDefinition += `${nodeRepresentation._id}{${nodeRepresentation.type}}\n`
+                    // Add any other node ("regular nodes")
+                    // TODO: Consider adding lable as name
+                } else {
+                    flowchartDefinition += `${nodeRepresentation._id}[${nodeRepresentation.type}]\n`
+                }
+            })
+
+            // Add relations in flowchart definition
+            nodeList.forEach(node => {
+                if (Array.isArray(node.next)) {
+                    node.next.forEach((nextNode) => {
+                        flowchartDefinition += `${node._id}-->${nextNode}\n`
+                    })
+                } else if (node.next !== null) {
+                    flowchartDefinition += `${node._id}-->${node.next}\n`
+                }
+            })
+
+            return flowchartDefinition
+        }
+
+
+
+
+        function documentNodes(nodeList, ruleSet) {
+            let number = 1
+            let flowchart = "graph TD\n"
+            let descriptionTable = []
+
+            nodeList.forEach(node => {
+                // Check, if ruleset applies to this node
+                if (node.type in ruleSet) {
+                    // Find applicable rules (ar)
+                    let ar = ruleSet[node.type]
+                    // Apply rules
+                    // 1. check if numbering
+                    if (ar.description) {
+                        numbering = number
+                    } else {
+                        numbering = false
+                    }
+                    // 2. Create flowchart node
+                    flowchart += node._id
+                    // Check if text needs to be dynamic
+                    if ("function" in ar.diagramNode.content) {
+                        flowchart += genFlowchartNode(numbering, ar.diagramNode.content.function(node), ar.diagramNode.shape)
+                    } else {
+                        flowchart += genFlowchartNode(numbering, ar.diagramNode.content.text, ar.diagramNode.shape)
+                    }
+                    flowchart += "\n"
+                    // 3. Add description to table
+                    if (ar.description) {
+                        let description = ""
+                        ar.description.forEach(element => {
+                            if (element.bold) { description += "<b>" }
+                            if (element.italic) { description += "<i>" }
+                            if (element.underlined) { description += "<u>" }
+                            if (element.strikethrough) { description += "<s>" }
+                            if ("function" in element) {
+                                description += element.function(node)
+                            } else {
+                                element.text
+                            }
+                            if (element.bold) { description += "</b>" }
+                            if (element.italic) { description += "</i>" }
+                            if (element.underlined) { description += "</u>" }
+                            if (element.strikethrough) { description += "</s>" }
+                            if (!element.noLinebreak) { description += "<br/>" }
+                        })
+                        descriptionTable.push({ "number": number, "description": description })
+                        number = number + 1
+                    }
+                } else {
+                    // Apply default rules, create flowchart node 
+                    flowchart += node._id + genFlowchartNode(false, node.label, "box") + "\n"
+                }
+            })
+            // Add relation
+            nodeList.forEach(node => {
+                if (Array.isArray(node.next)) {
+                    // Add multiple next nodes
+                    node.next.forEach((nextNode) => {
+                        flowchart += `${node._id}-->${nextNode}\n`
+                    })
+                } else if (node.next !== null) {
+                    flowchart += `${node._id}-->${node.next}\n`
+                }
+            })
+
+            return { flowchart, descriptionTable }
+        }
+
+
+
+
+        function genFlowchartNode(number, text, shape) {
+            node = ""
+            if (shape === "box") { node += "[" }
+            if (shape === "diamond") { node += "{" }
+            if (shape === "pill") { node += "([" }
+            if (shape === "hexagon") { node += "{{" }
+            if (number) { node += number + ": " }
+            text = text.replace(/[\(\)\[\]\{\}<>]/gm, "")
+            node += text
+            if (shape === "box") { node += "]" }
+            if (shape === "diamond") { node += "}" }
+            if (shape === "pill") { node += "])" }
+            if (shape === "hexagon") { node += "}}" }
+            return node
+        }
+
+
+
+
+        /**
+         * Function taking projectId and returning URLs of all the flows in this poject
+         * @param {str} apiUrl URL of the api-endpoint of the Cognigy environment, where the flows are lo-
+         * cated
+         * @param {str} projectId ID of the project, which should be documented using the tool
+         * @param {str} apiKey Cognigy API key to authenticate to make these requests
+         * @returns An array with all the flow urls to make subsequent API calls to fetch flow charts
+         * for all of these flows
+         */
+        function getAllFlowUrls(apiUrl, projectId, apiKey) {
+            var config = {
+                method: 'get',
+                url: apiUrl + '/new/v2.0/flows?projectId=' + projectId,
+                headers: {
+                    'X-API-Key': apiKey,
+                }
+            };
+
+            return axios(config).then(result => {
+                return result.data._embedded.flows.map(flow => {
+                    return flow._links.self.href
+                })
+            })
+        }
+
+
+
+
+        /**
+         * Function taking URL of flow and returning the flowchart of this flow
+         * @param {str} apiKey Cognigy API key to authenticate to make this request
+         * @param {str} flowUrl URL of the flow, for which the chart shall be requested
+         * @returns Flowchart of the flow referenced by the flow URL
+         */
+        function getFlowChart(apiKey, flowUrl) {
+            var config = {
+                method: 'get',
+                url: flowUrl + '/chart',
+                headers: {
+                    'X-API-Key': apiKey,
+                }
+            };
+
+            return axios(config)
+                .then(result => {
+                    return result.data
+                })
+
+        }
+
+
+
+
+        function generateHtmlTable(data) {
+            let headers = []
+            for (header in data[0]) {
+                headers.push(header)
+            }
+            tableString = '<table><tr>'
+            headers.forEach(header => {
+                tableString += `<th>${header}</th>`
+            })
+            tableString += '</tr>'
+            data.forEach(row => {
+                tableString += '<tr>'
+                Object.keys(row).forEach(value => {
+                    tableString += `<td>${row[value]}</td>`
+                })
+                tableString += '</tr>'
+            })
+            tableString += '</table>'
+            return tableString
+        }
+
+
+
+
+        async function executeBtnClick() {
+            ENV_URL = document.getElementById("envUrl").value
+            PROJECT_ID = document.getElementById("projectId").value
+            API_KEY = document.getElementById("apiKey").value
+            console.log(JSON.stringify(API_KEY) + " " + typeof API_KEY)
+
+            console.log("Env URL: " +  ENV_URL)
+
+            getAllFlowUrls(ENV_URL, PROJECT_ID, API_KEY)
+                .then(flowUrls => {
+                    let flowCharts = []
+                    flowUrls.forEach(flowUrl => {
+                        flowCharts.push(getFlowChart(API_KEY, flowUrl))
+                    })
+                    return Promise.all(flowCharts)
+                })
+                .then(flowCharts => {
+                    let contents = ""
+                    flowCharts.forEach(flowChart => {
+                        let nodeList = recFlowStructureTransform([], flowChart, null, null)
+                        let { flowchart, descriptionTable } = documentNodes(nodeList, descriptionRuleset)
+                        contents += '<div class="mermaid">\n' + flowchart + '</div>\n'
+                        contents += generateHtmlTable(descriptionTable)
+                    })
+                    document.getElementById("contents").innerHTML = contents
+                    mermaid.init(undefined, ".mermaid")
+                })
+        }
+
+
+
+
+        mermaid.initialize({ startOnLoad: true, maxTextSize: 999999 })
+        document.getElementById("executeBtn").addEventListener("click", executeBtnClick)
+    </script>
+</body>
+
+</html>
