@@ -1,6 +1,6 @@
-const { RestAPIClient } = require("@cognigy/rest-api-client");
 
-class APIClientGenerator {
+
+export class APIClientGenerator {
     static generateClient(baseUrl: string, apiKey: string) {
         const client = new RestAPIClient({
             baseUrl
@@ -15,7 +15,7 @@ class APIClientGenerator {
     }
 }
 
-class CProject {
+export class CProject {
     _id: string
     name: string
     color: string
@@ -64,7 +64,7 @@ class CProject {
     }
 }
 
-class CFlow {
+export class CFlow {
     _id: string
     referenceId: string
     name: string
@@ -141,7 +141,7 @@ class CFlow {
 }
 
 
-class CNode {
+export class CNode {
     _id: string
     referenceId: string
     type: string
@@ -181,7 +181,7 @@ class CNode {
 }
 
 
-class CNodeRelation {
+export class CNodeRelation {
     children: string[] | CNode[]
     _id: string | CNode
     node: string | null | CNode
@@ -228,7 +228,7 @@ class CNodeRelation {
 }
 
 
-class CLearningSentence {
+export class CLearningSentence {
     _id: string
     slots: {
         _id: string
@@ -258,7 +258,7 @@ class CLearningSentence {
     }
 }
 
-class CIntent {
+export class CIntent {
     _id: string
     tags: []
     name: string
@@ -292,7 +292,7 @@ class CIntent {
 }
 
 
-class CFlowSettings {
+export class CFlowSettings {
     _id: string
     continueExecutionAfterAttachedFlow: boolean
     continueExecutionAfterDefaultReply: boolean
@@ -323,13 +323,3 @@ class CFlowSettings {
         this.useIntentDefaultRepliesAsExamples = flowSettingsObject.useIntentDefaultRepliesAsExamples
     }
 }
-
-
-async function main() {
-    let apiClient = APIClientGenerator.generateClient("https://api-trial.cognigy.ai", "73ff0934076f2cd00aec0ec24d1291415e762c7cd5472bda94f77857bb1820e4dbc9925e5ed7a07dadf7eb6e9cc4ec4dd782de5fc1c8fdcafd10414f4ad49262")
-    let project = await CProject.getFromAPI(apiClient, "61bc5247eebe38099031a92d")
-    await project.loadFlowsFromAPI(apiClient)
-    console.log(JSON.stringify(project))
-}
-
-main()
