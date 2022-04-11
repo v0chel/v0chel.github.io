@@ -1,20 +1,3 @@
-
-
-export class APIClientGenerator {
-    static generateClient(baseUrl: string, apiKey: string) {
-        const client = new RestAPIClient({
-            baseUrl
-        })
-        
-        client.setCredentials({
-            type: "ApiKey",
-            apiKey
-        })
-
-        return client
-    }
-}
-
 export class CProject {
     _id: string
     name: string
