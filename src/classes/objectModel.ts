@@ -1,118 +1,292 @@
-class CNode {
-    type: string
-    referenceId: string
-    extension: string
-    label: string
-    comment: string
-    commentColor: string
-    preview: string
-    isEntryPoint: string
-    isDisabled: string
-    config: string
-    localeReference: string
-    analyticsLabel: string
-    _id: string
+const { RestAPIClient } = require("@cognigy/rest-api-client");
 
-    constructor (nodeObject) {
-        this.type = nodeObject.type
-        this.referenceId = nodeObject.referenceId
-        this.extension = nodeObject.extension
-        this.label = nodeObject.label
-        this.comment = nodeObject.comment
-        this.commentColor = nodeObject.commentColor
-        this.preview = nodeObject.preview
-        this.isEntryPoint = nodeObject.isEntryPoint
-        this.isDisabled = nodeObject.isDisabled
-        this.config = nodeObject.config
-        this.localeReference = nodeObject.localeReference
-        this.analyticsLabel = nodeObject.analyticsLabel
-        this._id = nodeObject._id
-    }
-}
-
-class CRelation {
-    _id: string
-    node: CNode
-    children: CNode[]
-    next: CNode
-
-    constructor (_id: string, node: CNode, children: CNode[], next: CNode) {
-        this._id = _id
-        this.node = node
-        this.children = children
-        this.next = next
-    }
-}
-
-class CChart {
-    nodes: CNode[]
-    relations: CRelation[]
-
-    constructor (chartObject) {
-        this.nodes = []
-        this.relations = []
-
-        chartObject.nodes.forEach(nodeObject => {
-            this.nodes.push(new CNode(nodeObject))
+class APIClientGenerator {
+    static generateClient(baseUrl: string, apiKey: string) {
+        const client = new RestAPIClient({
+            baseUrl
+        })
+        
+        client.setCredentials({
+            type: "ApiKey",
+            apiKey
         })
 
-        chartObject.relations.forEach(relationObject => {
-            let node = this.nodes.find(node => node._id == relationObject.node)
-            let children = this.nodes.filter(node => node._id in relationObject.children)
-            let next = this.nodes.find(node => node._id == relationObject.next)
-
-            this.relations.push(new CRelation(relationObject._id, node, children, next))
-        })
+        return client
     }
 }
 
-class CIntent {
-
-}
-
-class CSettings {
-
-}
-
-class CSlotfiller {}
-
-class CState {}
-
-class CFlow {
-    chart: CChart
-    intents: CIntent[]
-    settings: CSettings
-    slotfillers: CSlotfiller[]
-    states: CState[]
-
-    attachedFlows: CFlow[]
-    attachedLexicons: CLexicon[]
-
+class CProject {
     _id: string
+    name: string
+    color: string
+    primaryLocaleReference: string
     createdAt: number
     lastChanged: number
     createdBy: string
     lastChangedBy: string
-    referenceId: string
-    intentTrainGroupReference: string
-    feedbackReport: {
-        findings: {
-            type: string
-        }[]
-        info: {
-            fscore: string
-        }
+
+    flows: CFlow[] = []
+
+    constructor(projectObject: any) {
+        this._id = projectObject._id
+        this.name = projectObject.name
+        this.color = projectObject.color
+        this.primaryLocaleReference = projectObject.primaryLocaleReference
+        this.createdAt = projectObject.createdAt
+        this.createdBy = projectObject.createdBy
+        this.lastChanged = projectObject.lastChanged
+        this.lastChangedBy = projectObject.lastChangedBy
     }
-    isTrainingOutOfDate: boolean
-    name: string
-    context: object
-    img: string
+
+    static async getFromAPI(client: any, projectId: string) {
+        const projectObject = await client.readProject({
+            projectId
+        })
+
+        return new CProject(projectObject)
+    }
+
+    async loadFlowsFromAPI(client: any) {
+        const flowList = await client.indexFlows({
+            projectId: this._id
+        })
+
+        flowList.items.forEach((flowObject: any) => {
+            let flow = new CFlow(flowObject)
+            this.flows.push(flow)
+        })
+
+        await Promise.all(this.flows.map(async flow => {
+            await flow.loadChartFromAPI(client)
+            return await flow.loadIntentsFromAPI(client)
+        }))
+    }
 }
 
-class CEndpoint {}
+class CFlow {
+    _id: string
+    referenceId: string
+    name: string
+    createdAt: number
+    createdBy: string
+    lastChanged: number
+    lastChangedBy: string
+    isTrainingOutOfDate: boolean
 
-class CLexicon {}
+    chart: {
+        _id: string
+        nodes: CNode[]
+        relations: CNodeRelation[]
+    } = {
+        _id: "",
+        nodes: [],
+        relations: []
+    }
 
-class CExtension {}
+    intents: CIntent[] = []
 
-class CFunction {}
+    constructor(flowObject: any) {
+        this._id = flowObject._id
+        this.referenceId = flowObject.referenceId
+        this.name = flowObject.name
+        this.createdAt = flowObject.createdAt
+        this.createdBy = flowObject.createdBy
+        this.lastChanged = flowObject.lastChanged
+        this.lastChangedBy = flowObject.lastChangedBy
+        this.isTrainingOutOfDate = flowObject.isTrainingOutOfDate
+    }
+
+    async loadChartFromAPI(client: any) {
+        const chart = await client.readChart({
+            resourceId: this._id,
+            resourceType: "flow"
+        })
+
+        this.chart._id = chart._id
+        this.chart.nodes = chart.nodes.map((nodeObject: any)  => new CNode(nodeObject))
+        this.chart.relations = chart.relations.map((relationObject: any) => {
+            let relation = new CNodeRelation(relationObject)
+            relation.lookupChildren(this.chart.nodes)
+            relation.lookupNext(this.chart.nodes)
+            relation.lookupNode(this.chart.nodes)
+            return relation
+        })
+    }
+
+    async loadIntentsFromAPI(client: any) {
+        const intentObjects = await client.indexIntents({
+            flowId: this._id
+        })
+
+        const intents = await Promise.all(intentObjects.items.map(async (intentObject: any) => {
+            let intent = new CIntent(intentObject)
+            await intent.loadLearningSentencesFromAPI(client, this._id)
+            return intent
+        }))
+
+        intents.forEach((intent: CIntent) => {
+            this.intents.push(intent)
+        })
+    }
+}
+
+
+class CNode {
+    _id: string
+    referenceId: string
+    type: string
+    label: string
+    comment: string
+    commentColor: string
+    isDisabled: boolean
+    isEntryPoint: boolean
+    extension: string
+    preview: string | object
+    localeReference: string
+
+    previousNode: CNode | CNode[] | null = null
+    nextNode: CNode | CNode[] | null = null
+
+    constructor(nodeObject: any) {
+        this._id = nodeObject._id
+        this.referenceId = nodeObject.referenceId
+        this.type = nodeObject.type
+        this.label = nodeObject.label
+        this.comment = nodeObject.comment
+        this.commentColor = nodeObject.commentColor
+        this.isDisabled = nodeObject.isDisabled
+        this.isEntryPoint = nodeObject.isEntryPoint
+        this.extension = nodeObject.extension
+        this.preview = nodeObject.preview
+        this.localeReference = nodeObject.localeReference
+    }
+
+    setPreviousNode(node: CNode) {
+        this.previousNode = node
+    }
+
+    setNextNode(node: CNode) {
+        this.nextNode = node
+    }
+}
+
+
+class CNodeRelation {
+    children: string[] | CNode[]
+    _id: string | CNode
+    node: string | null | CNode
+    next: string | null | CNode
+
+    referenceToObjects: boolean = false
+
+    constructor(relationObject: any) {
+        this.children = relationObject.children
+        this._id = relationObject._id
+        this.node = relationObject.node
+        this.next = relationObject.next
+    }
+
+    lookupChildren (nodes: CNode[]) {
+        this.children = this.children.map(nodeReference => {
+            let node = nodes.find(node => {
+                return node._id === nodeReference
+            })
+
+            if (!node) throw new Error("[CNodeRelation.setReferences] Could not find matching children nodes.")
+            return node
+        })
+    }
+
+    lookupNode (nodes: CNode[]) {
+        let node = nodes.find(node => {
+            return node._id === this.node
+        })
+        if (!node) throw new Error("[CNodeRelation.setReferences] Could not find matching node.")
+        this.node = node
+    }
+
+    lookupNext (nodes: CNode[]) {
+        let node = nodes.find(node => {
+            return node._id === this.next
+        })
+        if (!node) {
+            this.next = null
+            return
+        }
+        this.next = node
+    }
+}
+
+
+class CLearningSentence {
+    _id: string
+    slots: {
+        _id: string
+        type: string
+        name: string
+        start: number
+        end: number
+    }[]
+    text: string
+    referenceId: string
+    localeReference: string
+    createdAt: number
+    lastChanged: number
+    createdBy: string
+    lastChangedBy: string
+
+    constructor(learningSentenceObject: any) {
+        this._id = learningSentenceObject._id
+        this.slots = learningSentenceObject.slots
+        this.text = learningSentenceObject.text
+        this.referenceId = learningSentenceObject.referenceId
+        this.localeReference = learningSentenceObject.localeReference
+        this.createdAt = learningSentenceObject.createdAt
+        this.lastChanged = learningSentenceObject.lastChanged
+        this.createdBy = learningSentenceObject.createdBy
+        this.lastChangedBy = learningSentenceObject.lastChangedBy
+    }
+}
+
+class CIntent {
+    _id: string
+    tags: []
+    name: string
+    referenceId: string
+    isDisabled: boolean
+    localeReference: string
+    parentIntentId: string | null
+
+    learningSentences: CLearningSentence[] = []
+
+    constructor(intentObject: any) {
+        this._id = intentObject._id
+        this.tags = intentObject.tags
+        this.name = intentObject.name
+        this.referenceId = intentObject.referenceId
+        this.isDisabled = intentObject.isDisabled
+        this.localeReference = intentObject.localeReference
+        this.parentIntentId = intentObject.parentIntentId
+    }
+
+    async loadLearningSentencesFromAPI(client: any, flowId: string) {
+        const learningSentences = await client.indexSentences({
+            flowId,
+            intentId: this._id
+        })
+
+        learningSentences.items.forEach((learningSentenceObject: any) => {
+            this.learningSentences.push(new CLearningSentence(learningSentenceObject))
+        })
+    }
+}
+
+
+async function main() {
+    let apiClient = APIClientGenerator.generateClient("https://api-trial.cognigy.ai", "73ff0934076f2cd00aec0ec24d1291415e762c7cd5472bda94f77857bb1820e4dbc9925e5ed7a07dadf7eb6e9cc4ec4dd782de5fc1c8fdcafd10414f4ad49262")
+    let project = await CProject.getFromAPI(apiClient, "61bc5247eebe38099031a92d")
+    await project.loadFlowsFromAPI(apiClient)
+    console.log(JSON.stringify(project))
+}
+
+main()
