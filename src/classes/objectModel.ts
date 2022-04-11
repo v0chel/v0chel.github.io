@@ -58,7 +58,8 @@ class CProject {
 
         await Promise.all(this.flows.map(async flow => {
             await flow.loadChartFromAPI(client)
-            return await flow.loadIntentsFromAPI(client)
+            await flow.loadIntentsFromAPI(client)
+            return await flow.loadSettingsFromAPI
         }))
     }
 }
@@ -84,6 +85,8 @@ class CFlow {
     }
 
     intents: CIntent[] = []
+
+    settings: CFlowSettings | undefined = undefined
 
     constructor(flowObject: any) {
         this._id = flowObject._id
@@ -127,6 +130,13 @@ class CFlow {
         intents.forEach((intent: CIntent) => {
             this.intents.push(intent)
         })
+    }
+
+    async loadSettingsFromAPI (client: any) {
+        const flowSettingsObject = await client.readFlowSettings({
+            flowId: this._id
+        })
+        this.settings = new CFlowSettings(flowSettingsObject)
     }
 }
 
@@ -278,6 +288,39 @@ class CIntent {
         learningSentences.items.forEach((learningSentenceObject: any) => {
             this.learningSentences.push(new CLearningSentence(learningSentenceObject))
         })
+    }
+}
+
+
+class CFlowSettings {
+    _id: string
+    continueExecutionAfterAttachedFlow: boolean
+    continueExecutionAfterDefaultReply: boolean
+    continueExecutionAfterNegativeConfirmation: boolean
+    flowIntentMappingOrder: string
+    useAttachedFlowThresholds: boolean
+    useAttachedFlowContinueAfterDefaultReply: boolean
+    useAttachedFlowPassDefaultRepliesIntoFlow: boolean
+    passDefaultRepliesIntoFlow: boolean
+    implicitSlotParsing: string
+    useAttachedFlowImplicitSlotParsing: boolean
+    lexiconSlotsWithSubMatches: boolean
+    useIntentDefaultRepliesAsExamples: boolean
+
+    constructor (flowSettingsObject: any) {
+        this._id = flowSettingsObject._id
+        this.continueExecutionAfterAttachedFlow = flowSettingsObject.continueExecutionAfterAttachedFlow
+        this.continueExecutionAfterDefaultReply = flowSettingsObject.continueExecutionAfterDefaultReply
+        this.continueExecutionAfterNegativeConfirmation = flowSettingsObject.continueExecutionAfterNegativeConfirmation
+        this.flowIntentMappingOrder = flowSettingsObject.flowIntentMappingOrder
+        this.useAttachedFlowThresholds = flowSettingsObject.useAttachedFlowThresholds
+        this.useAttachedFlowContinueAfterDefaultReply = flowSettingsObject.useAttachedFlowContinueAfterDefaultReply
+        this.useAttachedFlowPassDefaultRepliesIntoFlow = flowSettingsObject.useAttachedFlowPassDefaultRepliesIntoFlow
+        this.passDefaultRepliesIntoFlow = flowSettingsObject.passDefaultRepliesIntoFlow
+        this.implicitSlotParsing = flowSettingsObject.implicitSlotParsing
+        this.useAttachedFlowImplicitSlotParsing = flowSettingsObject.useAttachedFlowImplicitSlotParsing
+        this.lexiconSlotsWithSubMatches = flowSettingsObject.lexiconSlotsWithSubMatches
+        this.useIntentDefaultRepliesAsExamples = flowSettingsObject.useIntentDefaultRepliesAsExamples
     }
 }
 
