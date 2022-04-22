@@ -42,7 +42,7 @@ export class CProject {
         await Promise.all(this.flows.map(async flow => {
             await flow.loadChartFromAPI(client)
             await flow.loadIntentsFromAPI(client)
-            return await flow.loadSettingsFromAPI
+            return await flow.loadSettingsFromAPI(client)
         }))
     }
 }
