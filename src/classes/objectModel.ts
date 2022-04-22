@@ -48,6 +48,7 @@ export class CProject {
 }
 
 export class CFlow {
+    // info retrieved from indexFlows call result
     _id: string
     referenceId: string
     name: string
@@ -56,6 +57,17 @@ export class CFlow {
     lastChanged: number
     lastChangedBy: string
     isTrainingOutOfDate: boolean
+
+    // extended info received from readFlow call result
+    attachedFlows: string[] | undefined
+    context: any | undefined
+    img: string | undefined
+    projectReference: string | undefined
+    organisationReference: string | undefined
+    chartReference: string | undefined
+    attachedLexicons: string[] | undefined
+    localeReference: string | undefined
+    intentTrainGroupReference: string | undefined
 
     chart: {
         _id: string
@@ -80,6 +92,12 @@ export class CFlow {
         this.lastChanged = flowObject.lastChanged
         this.lastChangedBy = flowObject.lastChangedBy
         this.isTrainingOutOfDate = flowObject.isTrainingOutOfDate
+    }
+
+    async loadExtendedInfoFromAPI(client: any) {
+        const flowInfoObject = await client.readFlow({
+            flowId: this._id
+        })
     }
 
     async loadChartFromAPI(client: any) {
