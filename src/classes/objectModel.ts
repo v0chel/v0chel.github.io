@@ -36,6 +36,7 @@ export class CProject {
 
         flowList.items.forEach((flowObject: any) => {
             let flow = new CFlow(flowObject)
+            flow.loadExtendedInfoFromAPI(client)
             this.flows.push(flow)
         })
 
@@ -98,6 +99,16 @@ export class CFlow {
         const flowInfoObject = await client.readFlow({
             flowId: this._id
         })
+
+        this.attachedFlows = flowInfoObject.attachedFlows
+        this.context = flowInfoObject.context
+        this.img = flowInfoObject.img
+        this.projectReference = flowInfoObject.projectReference
+        this.organisationReference = flowInfoObject.organisationReference
+        this.chartReference = flowInfoObject.chartReference
+        this.attachedLexicons = flowInfoObject.attachedLexicons
+        this.localeReference = flowInfoObject.localeReference
+        this.intentTrainGroupReference = flowInfoObject.intentTrainGroupReference
     }
 
     async loadChartFromAPI(client: any) {
