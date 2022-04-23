@@ -1,7 +1,9 @@
+import { ErrorCollection } from "@cognigy/rest-api-client";
+import { CFlow } from "./CFlow";
 import { CNode } from "./CNode";
 
 export class DNodeDocumentationRuleset {
-    ruleset = {
+    ruleset: any = {
         "start": {
             diagramNode: {
                 content: { text: "Start" },
@@ -162,14 +164,45 @@ export class DNodeDocumentationRuleset {
         }
     };
 
-    instance: DNodeDocumentationRuleset | undefined;
+    static instance: DNodeDocumentationRuleset | undefined;
 
     private constructor() { }
 
-    getInstance() {
+    static getInstance() {
         if (!this.instance) {
             this.instance = new DNodeDocumentationRuleset();
         }
         return this.instance;
+    }
+
+    generateDocumentationText (node: CNode) {
+        let applicableRule = this.ruleset[node.type]
+        if (applicableRule && applicableRule.description) {
+            let descriptionText = ""
+            applicableRule.description.forEach((element: any) => {
+                if (element.bold) { descriptionText += "<b>" }
+                if (element.italic) { descriptionText += "<i>" }
+                if (element.underlined) { descriptionText += "<u>" }
+                if (element.strikethrough) { descriptionText += "<s>" }
+                if ("function" in element) { descriptionText += element.function(node) }
+                if ("text" in element) { descriptionText += element.text }
+                if (element.bold) { descriptionText += "</b>" }
+                if (element.italic) { descriptionText += "</i>" }
+                if (element.underlined) { descriptionText += "</u>" }
+                if (element.strikethrough) { descriptionText += "</s>" }
+                if (!element.noLinebreak) { descriptionText += "<br/>" }
+            })
+            return descriptionText
+        } else {
+            return null
+        }
+    }
+
+    hasDescription (node: CNode) {
+        return this.ruleset[node.type] && this.ruleset[node.type].description
+    }
+
+    generateFlowChart (flow: CFlow) {
+        
     }
 }
