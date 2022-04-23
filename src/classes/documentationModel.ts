@@ -69,13 +69,13 @@ export class DGenerator {
         project.flows.forEach(flow => {
             let flowSection = rootSection.newSubSection(flow.name)
             let nluSection = flowSection.newSubSection("NLU")
-            nluSection.content = DTableGenerator.generateTable(DGenerator.genNluAnalysis(flow))
+            nluSection.content = DTableGenerator.generateTable(DGenerator.genIntentList(flow))
         })
 
         return rootSection
     }
 
-    static genNluAnalysis(flow: CFlow) {
+    static genIntentList(flow: CFlow) {
         let intentTable: { name: string; length: number; }[] = []
         flow.intents.forEach((intent: CIntent) => {
             let nTrainingSentences = intent.learningSentences.length
@@ -85,5 +85,9 @@ export class DGenerator {
             })
         })
         return intentTable
+    }
+
+    static genAttachedFlowsList(flow: CFlow) {
+        
     }
 }
